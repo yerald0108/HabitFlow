@@ -1,0 +1,347 @@
+import React, { useCallback, useRef } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  Animated,
+  Platform,
+  StyleSheet
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
+import { useTheme } from '../../theme/theme';
+import { useHabitStore } from '../../store/habitStore';
+import {
+  useHabitsForToday,
+  useDailyProgress,
+  useIsHabitCompletedOn,
+} from '../../store/selectors';
+import { HabitRow } from '../../components/habits/HabitRow';
+import { CircularProgress } from '../../components/ui/CircularProgress';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { getTodayString, formatDisplayDate } from '../../domain/utils/dateUtils';
+import { HabitFormScreen } from '../Habits/HabitFormScreen';
+import { useUIStore } from '../../store/uiStore';
+
+// ─── FILA DE HÁBITO CONECTADA AL STORE ──────────────────────
+// Componente interno para que cada fila se suscriba a su propio estado
+
+const ConnectedHabitRow: React.FC<{
+  habitId: string;
+  habit: ReturnType<typeof useHabitsForToday>[0];
+  onPress: () => void;
+}> = ({ habit, onPress }) => {
+  const today       = getTodayString();
+  const isCompleted = useIsHabitCompletedOn(habit.id, today);
+  const records     = useHabitStore(s => s.records[habit.id] ?? []);
+  const toggleHabit = useHabitStore(s => s.toggleHabit);
+
+  // Calcular racha actual de forma simple
+  const completedDates = new Set(records.filter(r => r.completed).map(r => r.date));
+  let streak = 0;
+  const checkDate = new Date();
+  for (let i = 0; i < 365; i++) {
+    const d = checkDate.toISOString().split('T')[0];
+    if (completedDates.has(d)) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else if (i === 0) {
+      // Hoy no completado aún — empezar desde ayer
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  return (
+    <HabitRow
+      habit={habit}
+      isCompleted={isCompleted}
+      currentStreak={streak}
+      onToggle={() => toggleHabit(habit.id)}
+      onPress={onPress}
+    />
+  );
+};
+
+// ─── HEADER ─────────────────────────────────────────────────
+
+const TodayHeader: React.FC<{ onSettingsPress: () => void }> = ({ onSettingsPress }) => {
+  const { colors, typography, spacing } = useTheme();
+  const today = getTodayString();
+
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? 'Buenos días' :
+    hour < 18 ? 'Buenas tardes' :
+                'Buenas noches';
+
+  return (
+    <View style={{
+      flexDirection:  'row',
+      justifyContent: 'space-between',
+      alignItems:     'flex-start',
+      paddingHorizontal: spacing[5],
+      paddingTop:     spacing[4],
+      paddingBottom:  spacing[2],
+    }}>
+      <View>
+        <Text style={{
+          fontSize:     typography.fontSize.sm,
+          color:        colors.textTertiary,
+          fontWeight:   typography.fontWeight.medium,
+          letterSpacing: typography.letterSpacing.wide,
+          textTransform: 'uppercase',
+        }}>
+          {greeting}
+        </Text>
+        <Text style={{
+          fontSize:     typography.fontSize['2xl'],
+          fontWeight:   typography.fontWeight.bold,
+          color:        colors.textPrimary,
+          letterSpacing: typography.letterSpacing.tight,
+          marginTop:    2,
+        }}>
+          Hoy
+        </Text>
+        <Text style={{
+          fontSize:  typography.fontSize.sm,
+          color:     colors.textSecondary,
+          marginTop: 2,
+        }}>
+          {formatDisplayDate(today)}
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        onPress={onSettingsPress}
+        style={{
+          width:  40,
+          height: 40,
+          alignItems:     'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Feather name="bell" size={22} color={colors.textSecondary} />
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+// ─── TARJETA DE PROGRESO ────────────────────────────────────
+
+const ProgressCard: React.FC = () => {
+  const { colors, typography, spacing, borderRadius, shadows } = useTheme();
+  const { completed, total, percentage } = useDailyProgress();
+
+  const isComplete = percentage >= 1 && total > 0;
+  const motivationalText =
+    total === 0       ? 'Agrega tu primer hábito ↓' :
+    percentage === 0  ? '¡Comienza tu día!' :
+    percentage < 0.5  ? '¡Vas bien, sigue adelante!' :
+    percentage < 1    ? '¡Casi lo logras!' :
+                        '¡Día perfecto! 🎉';
+
+  return (
+    <View style={{
+      marginHorizontal: spacing[5],
+      marginVertical:   spacing[4],
+      backgroundColor:  isComplete ? colors.successLight : colors.accentLight,
+      borderRadius:     borderRadius.xl,
+      padding:          spacing[5],
+      flexDirection:    'row',
+      alignItems:       'center',
+      gap:              spacing[5],
+      ...shadows.sm,
+    }}>
+      <CircularProgress
+        percentage={percentage}
+        completed={completed}
+        total={total}
+        size={100}
+        strokeWidth={8}
+      />
+
+      <View style={{ flex: 1 }}>
+        <Text style={{
+          fontSize:     typography.fontSize.lg,
+          fontWeight:   typography.fontWeight.bold,
+          color:        isComplete ? colors.success : colors.accent,
+          letterSpacing: typography.letterSpacing.tight,
+        }}>
+          {total === 0
+            ? 'Sin hábitos'
+            : isComplete
+            ? '¡Completado!'
+            : `${Math.round(percentage * 100)}%`}
+        </Text>
+        <Text style={{
+          fontSize:  typography.fontSize.sm,
+          color:     colors.textSecondary,
+          marginTop: spacing[1],
+          lineHeight: typography.fontSize.sm * typography.lineHeight.relaxed,
+        }}>
+          {motivationalText}
+        </Text>
+
+        {/* Barra de progreso lineal */}
+        {total > 0 && (
+          <View style={{
+            marginTop:       spacing[3],
+            height:          4,
+            backgroundColor: colors.accentMedium,
+            borderRadius:    2,
+            overflow:        'hidden',
+          }}>
+            <Animated.View style={{
+              height:          4,
+              width:           `${Math.round(percentage * 100)}%`,
+              backgroundColor: isComplete ? colors.success : colors.accent,
+              borderRadius:    2,
+            }} />
+          </View>
+        )}
+      </View>
+    </View>
+  );
+};
+
+// ─── PANTALLA PRINCIPAL ─────────────────────────────────────
+
+export const TodayScreen: React.FC = () => {
+  const { colors, typography, spacing, borderRadius, shadows } = useTheme();
+  const insets       = useSafeAreaInsets();
+  const habitsToday  = useHabitsForToday();
+  const initialize   = useHabitStore(s => s.initialize);
+  const [refreshing,      setRefreshing]      = React.useState(false);
+  const openHabitForm  = useUIStore(s => s.openHabitForm);
+  const closeHabitForm = useUIStore(s => s.closeHabitForm);
+  const isFormVisible  = useUIStore(s => s.isHabitFormOpen);
+  const editingHabitId = useUIStore(s => s.editingHabitId);
+
+  const TAB_BAR_TOTAL = 64 + (insets.bottom > 0 ? insets.bottom : 16) + 16;
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await initialize();
+    setRefreshing(false);
+  }, []);
+
+  // Animación del FAB
+  const fabScale = useRef(new Animated.Value(1)).current;
+
+  const handleFabPressIn = () => {
+    Animated.spring(fabScale, {
+      toValue: 0.92,
+      damping: 15,
+      stiffness: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleFabPressOut = () => {
+    Animated.spring(fabScale, {
+      toValue: 1,
+      damping: 15,
+      stiffness: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Header fijo */}
+      <View style={{ paddingTop: insets.top }}>
+        <TodayHeader onSettingsPress={() => {}} />
+      </View>
+
+      {/* Contenido scrolleable */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          flexGrow:      1,
+          paddingBottom: TAB_BAR_TOTAL + spacing[8],
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }
+      >
+        {/* Tarjeta de progreso */}
+        <ProgressCard />
+
+        {/* Sección de hábitos */}
+        {habitsToday.length === 0 ? (
+          <EmptyState
+            emoji="🌱"
+            title="Tu día está en blanco"
+            subtitle="Crea tu primer hábito y empieza a construir la mejor versión de ti."
+          />
+        ) : (
+          <View style={{ paddingHorizontal: spacing[5] }}>
+            <Text style={{
+              fontSize:     typography.fontSize.xs,
+              fontWeight:   typography.fontWeight.semibold,
+              color:        colors.textTertiary,
+              letterSpacing: typography.letterSpacing.widest,
+              textTransform: 'uppercase',
+              marginBottom:  spacing[3],
+            }}>
+              Hábitos de hoy
+            </Text>
+
+            {habitsToday.map(habit => (
+              <ConnectedHabitRow
+                key={habit.id}
+                habitId={habit.id}
+                habit={habit}
+                onPress={() => {}}
+              />
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* FAB — Botón flotante para crear hábito */}
+      <Animated.View style={{
+        position:  'absolute',
+        right:     spacing[5],
+        bottom:    TAB_BAR_TOTAL + spacing[4],
+        transform: [{ scale: fabScale }],
+        ...shadows.lg,
+      }}>
+        <TouchableOpacity
+          onPress={() => openHabitForm()}
+          onPressIn={handleFabPressIn}
+          onPressOut={handleFabPressOut}
+          activeOpacity={1}
+          style={{
+            width:           56,
+            height:          56,
+            borderRadius:    28,
+            backgroundColor: colors.accent,
+            alignItems:      'center',
+            justifyContent:  'center',
+          }}
+        >
+          <Feather name="plus" size={26} color={colors.textOnAccent} />
+        </TouchableOpacity>
+      </Animated.View>
+      {/* Modal de formulario */}
+        {isFormVisible && (
+            <View style={StyleSheet.absoluteFill}>
+                <HabitFormScreen
+                    habitId={editingHabitId ?? undefined}
+                    onClose={() => closeHabitForm()}
+                />
+            </View>
+        )}
+    </View>
+  );
+};

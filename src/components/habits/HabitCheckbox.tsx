@@ -1,14 +1,6 @@
-import React, { useEffect } from 'react';
-import { TouchableOpacity, ViewStyle } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withSequence,
-  withTiming,
-  interpolateColor,
-  Easing,
-} from 'react-native-reanimated';
+// src/components/habits/HabitCheckbox.tsx
+import React, { useEffect, useRef } from 'react';
+import { TouchableOpacity, ViewStyle, Animated, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../theme/theme';
 
@@ -16,7 +8,7 @@ interface HabitCheckboxProps {
   checked: boolean;
   onToggle: () => void;
   size?: 'sm' | 'md' | 'lg';
-  accentColor?: string;  // opcional: color personalizado por hábito
+  accentColor?: string;
   style?: ViewStyle;
 }
 
@@ -27,93 +19,144 @@ export const HabitCheckbox: React.FC<HabitCheckboxProps> = ({
   accentColor,
   style,
 }) => {
-  const { colors, borderRadius, borderWidth, animation, layout } = useTheme();
+  const { colors, borderRadius, borderWidth, layout } = useTheme();
 
-  const sizeMap = {
-    sm: layout.checkboxSm,
-    md: layout.checkboxMd,
-    lg: layout.checkboxLg,
-  };
+  const sizeMap      = { sm: layout.checkboxSm, md: layout.checkboxMd, lg: layout.checkboxLg };
   const checkboxSize = sizeMap[size];
-  const iconSize = checkboxSize * 0.55;
+  const iconSize     = checkboxSize * 0.55;
+  const filledColor  = accentColor ?? colors.checkboxFilled;
 
-  // Valores animados
-  const progress = useSharedValue(checked ? 1 : 0);
-  const scale = useSharedValue(1);
-  const checkScale = useSharedValue(checked ? 1 : 0);
-  const ripple = useSharedValue(0);
+  // ── Nodos NATIVOS (transform + opacity) ──────────────────
+  const scaleAnim       = useRef(new Animated.Value(1)).current;
+  const checkOpacity    = useRef(new Animated.Value(checked ? 1 : 0)).current;
+  const checkScale      = useRef(new Animated.Value(checked ? 1 : 0)).current;
+  const rippleScale     = useRef(new Animated.Value(1)).current;
+  const rippleOpacity   = useRef(new Animated.Value(0)).current;
 
-  const filledColor = accentColor ?? colors.checkboxFilled;
+  // ── Nodos JS (backgroundColor, borderColor) ───────────────
+  const bgAnim          = useRef(new Animated.Value(checked ? 1 : 0)).current;
+  const borderAnim      = useRef(new Animated.Value(checked ? 1 : 0)).current;
 
   useEffect(() => {
     if (checked) {
-      // Secuencia satisfactoria al marcar:
-      // 1. Pequeño "squish" inicial
-      // 2. Relleno del color con spring
-      // 3. El check aparece con rebote
-      // 4. Ripple exterior sutil
-      scale.value = withSequence(
-        withSpring(0.85, { damping: 10, stiffness: 400 }),
-        withSpring(1.08, animation.spring.bouncy),
-        withSpring(1, animation.spring.gentle),
-      );
-      progress.value = withSpring(1, animation.spring.smooth);
-      checkScale.value = withSequence(
-        withTiming(0, { duration: 50 }),
-        withSpring(1.2, animation.spring.bouncy),
-        withSpring(1, animation.spring.gentle),
-      );
-      ripple.value = withSequence(
-        withTiming(1, { duration: animation.duration.normal, easing: Easing.out(Easing.quad) }),
-        withTiming(0, { duration: 0 }),
-      );
+      // Escala del contenedor: squish → rebote
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 0.82,
+          duration: 80,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          damping: 12,
+          stiffness: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Check: aparece con rebote
+      Animated.sequence([
+        Animated.timing(checkOpacity, {
+          toValue: 0,
+          duration: 40,
+          useNativeDriver: true,
+        }),
+        Animated.spring(checkOpacity, {
+          toValue: 1,
+          damping: 12,
+          stiffness: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      Animated.sequence([
+        Animated.timing(checkScale, {
+          toValue: 0,
+          duration: 40,
+          useNativeDriver: true,
+        }),
+        Animated.spring(checkScale, {
+          toValue: 1,
+          damping: 12,
+          stiffness: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Ripple exterior
+      rippleScale.setValue(1);
+      rippleOpacity.setValue(0.5);
+      Animated.parallel([
+        Animated.timing(rippleScale, {
+          toValue: 1.8,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rippleOpacity, {
+          toValue: 0,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Color de fondo y borde (JS thread — no pueden ser nativos)
+      Animated.timing(bgAnim, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: false,
+      }).start();
+
+      Animated.timing(borderAnim, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: false,
+      }).start();
+
     } else {
-      // Al desmarcar: suave y rápido
-      scale.value = withSpring(1, animation.spring.gentle);
-      progress.value = withTiming(0, { duration: animation.duration.fast });
-      checkScale.value = withTiming(0, { duration: animation.duration.fast });
+      // Desmarcar — todo suave y rápido
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        damping: 15,
+        stiffness: 200,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(checkOpacity, {
+        toValue: 0,
+        duration: 120,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(checkScale, {
+        toValue: 0,
+        duration: 120,
+        useNativeDriver: true,
+      }).start();
+
+      Animated.timing(bgAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: false,
+      }).start();
+
+      Animated.timing(borderAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: false,
+      }).start();
     }
   }, [checked]);
 
-  // Estilo animado del contenedor (color de fondo)
-  const containerAnimated = useAnimatedStyle(() => {
-    return {
-      backgroundColor: interpolateColor(
-        progress.value,
-        [0, 1],
-        [colors.checkboxEmpty, filledColor],
-      ),
-      transform: [{ scale: scale.value }],
-      borderWidth: progress.value < 0.5 ? borderWidth.medium : 0,
-    };
+  // Interpolaciones JS (color)
+  const backgroundColor = bgAnim.interpolate({
+    inputRange:  [0, 1],
+    outputRange: [colors.checkboxEmpty, filledColor],
   });
 
-  // Estilo animado del check interior
-  const checkAnimated = useAnimatedStyle(() => ({
-    transform: [{ scale: checkScale.value }],
-    opacity: checkScale.value,
-  }));
-
-  // Ripple exterior
-  const rippleAnimated = useAnimatedStyle(() => ({
-    position: 'absolute',
-    width: checkboxSize + 12,
-    height: checkboxSize + 12,
-    borderRadius: borderRadius.full,
-    borderWidth: 2,
-    borderColor: filledColor,
-    opacity: ripple.value * 0.3,
-    transform: [{ scale: 0.8 + ripple.value * 0.5 }],
-  }));
-
-  const containerStyle: ViewStyle = {
-    width: checkboxSize,
-    height: checkboxSize,
-    borderRadius: borderRadius.full,
-    borderColor: colors.borderStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-  };
+  const borderColor = borderAnim.interpolate({
+    inputRange:  [0, 1],
+    outputRange: [colors.borderStrong, filledColor],
+  });
 
   return (
     <TouchableOpacity
@@ -121,20 +164,49 @@ export const HabitCheckbox: React.FC<HabitCheckboxProps> = ({
       activeOpacity={1}
       style={[{ alignItems: 'center', justifyContent: 'center' }, style]}
     >
-      {/* Ripple exterior */}
-      <Animated.View style={rippleAnimated} pointerEvents="none" />
+      {/* Ripple — solo transform+opacity = nativeDriver: true */}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position:     'absolute',
+          width:        checkboxSize,
+          height:       checkboxSize,
+          borderRadius: checkboxSize / 2,
+          borderWidth:  2,
+          borderColor:  filledColor,
+          opacity:      rippleOpacity,
+          transform:    [{ scale: rippleScale }],
+        }}
+      />
 
-      {/* Checkbox principal */}
-      <Animated.View style={[containerStyle, containerAnimated]}>
-        <Animated.View style={checkAnimated}>
-          <Feather
-            name="check"
-            size={iconSize}
-            color={colors.checkboxCheck}
-            style={{ fontWeight: '700' }}
-          />
+      {/* Capa JS: backgroundColor y borderColor */}
+      <Animated.View
+        style={{
+          width:        checkboxSize,
+          height:       checkboxSize,
+          borderRadius: checkboxSize / 2,
+          borderWidth:  borderWidth.medium,
+          borderColor,
+          backgroundColor,
+        }}
+      >
+        {/* Capa nativa: scale + opacity del check */}
+        <Animated.View
+          style={{
+            flex:           1,
+            alignItems:     'center',
+            justifyContent: 'center',
+            opacity:        checkOpacity,
+            transform:      [{ scale: checkScale }],
+          }}
+        >
+          <Feather name="check" size={iconSize} color={colors.checkboxCheck} />
         </Animated.View>
       </Animated.View>
+
+      {/* Capa nativa separada: scale del contenedor completo */}
+      {/* No podemos poner scale en el mismo View que backgroundColor */}
+      {/* Por eso usamos un wrapper nativo encima */}
     </TouchableOpacity>
   );
 };
