@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,15 +24,17 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { getTodayString, formatDisplayDate } from '../../domain/utils/dateUtils';
 import { HabitFormScreen } from '../Habits/HabitFormScreen';
 import { useUIStore } from '../../store/uiStore';
+import { Confetti } from '../../components/ui/Confetti';
 
 // ─── FILA DE HÁBITO CONECTADA AL STORE ──────────────────────
 // Componente interno para que cada fila se suscriba a su propio estado
 
 const ConnectedHabitRow: React.FC<{
   habitId: string;
-  habit: ReturnType<typeof useHabitsForToday>[0];
+  habit:   ReturnType<typeof useHabitsForToday>[0];
   onPress: () => void;
-}> = ({ habit, onPress }) => {
+  index?:  number;
+}> = ({ habit, onPress, index = 0 }) => {
   const today       = getTodayString();
   const isCompleted = useIsHabitCompletedOn(habit.id, today);
   const records     = useHabitStore(s => s.records[habit.id] ?? []);
@@ -62,6 +64,7 @@ const ConnectedHabitRow: React.FC<{
       currentStreak={streak}
       onToggle={() => toggleHabit(habit.id)}
       onPress={onPress}
+      index={index}
     />
   );
 };
@@ -136,13 +139,30 @@ const ProgressCard: React.FC = () => {
   const { colors, typography, spacing, borderRadius, shadows } = useTheme();
   const { completed, total, percentage } = useDailyProgress();
 
-  const isComplete = percentage >= 1 && total > 0;
+  const animatedWidth = useRef(new Animated.Value(percentage)).current;
+  const isComplete    = percentage >= 1 && total > 0;
+
   const motivationalText =
-    total === 0       ? 'Agrega tu primer hábito ↓' :
-    percentage === 0  ? '¡Comienza tu día!' :
-    percentage < 0.5  ? '¡Vas bien, sigue adelante!' :
-    percentage < 1    ? '¡Casi lo logras!' :
-                        '¡Día perfecto! 🎉';
+    total === 0      ? 'Agrega tu primer hábito ↓' :
+    percentage === 0 ? '¡Comienza tu día!'          :
+    percentage < 0.5 ? '¡Vas bien, sigue adelante!' :
+    percentage < 1   ? '¡Casi lo logras!'            :
+                       '¡Día perfecto! 🎉';
+
+  useEffect(() => {
+    Animated.spring(animatedWidth, {
+      toValue:         percentage,
+      damping:         20,
+      stiffness:       60,
+      mass:            1,
+      useNativeDriver: false,
+    }).start();
+  }, [percentage]);
+
+  const barWidth = animatedWidth.interpolate({
+    inputRange:  [0, 1],
+    outputRange: ['0%', '100%'],
+  });
 
   return (
     <View style={{
@@ -166,9 +186,9 @@ const ProgressCard: React.FC = () => {
 
       <View style={{ flex: 1 }}>
         <Text style={{
-          fontSize:     typography.fontSize.lg,
-          fontWeight:   typography.fontWeight.bold,
-          color:        isComplete ? colors.success : colors.accent,
+          fontSize:      typography.fontSize.lg,
+          fontWeight:    typography.fontWeight.bold,
+          color:         isComplete ? colors.success : colors.accent,
           letterSpacing: typography.letterSpacing.tight,
         }}>
           {total === 0
@@ -177,29 +197,29 @@ const ProgressCard: React.FC = () => {
             ? '¡Completado!'
             : `${Math.round(percentage * 100)}%`}
         </Text>
+
         <Text style={{
-          fontSize:  typography.fontSize.sm,
-          color:     colors.textSecondary,
-          marginTop: spacing[1],
+          fontSize:   typography.fontSize.sm,
+          color:      colors.textSecondary,
+          marginTop:  spacing[1],
           lineHeight: typography.fontSize.sm * typography.lineHeight.relaxed,
         }}>
           {motivationalText}
         </Text>
 
-        {/* Barra de progreso lineal */}
         {total > 0 && (
           <View style={{
             marginTop:       spacing[3],
-            height:          4,
+            height:          6,
             backgroundColor: colors.accentMedium,
-            borderRadius:    2,
+            borderRadius:    3,
             overflow:        'hidden',
           }}>
             <Animated.View style={{
-              height:          4,
-              width:           `${Math.round(percentage * 100)}%`,
+              height:          6,
+              borderRadius:    3,
               backgroundColor: isComplete ? colors.success : colors.accent,
-              borderRadius:    2,
+              width:           barWidth,
             }} />
           </View>
         )}
@@ -216,12 +236,24 @@ export const TodayScreen: React.FC = () => {
   const habitsToday  = useHabitsForToday();
   const initialize   = useHabitStore(s => s.initialize);
   const [refreshing,      setRefreshing]      = React.useState(false);
+  const [showConfetti, setShowConfetti] = React.useState(false);
+  const prevPercentage = React.useRef(0);
   const openHabitForm  = useUIStore(s => s.openHabitForm);
   const closeHabitForm = useUIStore(s => s.closeHabitForm);
   const isFormVisible  = useUIStore(s => s.isHabitFormOpen);
   const editingHabitId = useUIStore(s => s.editingHabitId);
 
   const TAB_BAR_TOTAL = 64 + (insets.bottom > 0 ? insets.bottom : 16) + 16;
+
+  const { percentage } = useDailyProgress();
+
+  React.useEffect(() => {
+    if (percentage >= 1 && prevPercentage.current < 1) {
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3000);
+    }
+    prevPercentage.current = percentage;
+  }, [percentage]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -296,11 +328,12 @@ export const TodayScreen: React.FC = () => {
               Hábitos de hoy
             </Text>
 
-            {habitsToday.map(habit => (
+            {habitsToday.map((habit, index) => (
               <ConnectedHabitRow
                 key={habit.id}
                 habitId={habit.id}
                 habit={habit}
+                index={index}
                 onPress={() => {}}
               />
             ))}
@@ -342,6 +375,8 @@ export const TodayScreen: React.FC = () => {
                 />
             </View>
         )}
+        {/* Confeti al completar el día */}
+        <Confetti visible={showConfetti} />
     </View>
   );
 };

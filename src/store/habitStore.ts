@@ -1,21 +1,13 @@
 // src/store/habitStore.ts
 import { create } from 'zustand';
 import {
-  Habit, HabitRecord, HabitWithStats,
+  Habit, HabitRecord,
   CreateHabitInput, UpdateHabitInput,
 } from '../domain/models/Habit';
 import { HabitRepository } from '../data/repositories/HabitRepository';
 import { HabitRecordRepository } from '../data/repositories/HabitRecordRepository';
 import { getTodayString, getLastNDays } from '../domain/utils/dateUtils';
-import {
-  calculateCurrentStreak,
-  calculateLongestStreak,
-  calculateCompletionRate,
-  isCompletedToday,
-  shouldHabitBeCompletedOn,
-} from '../domain/utils/streakUtils';
-
-// ─── TIPOS ──────────────────────────────────────────────────
+import { NotificationService } from '../domain/services/NotificationService';
 
 interface HabitState {
   habits:        Habit[];
@@ -24,20 +16,18 @@ interface HabitState {
   isInitialized: boolean;
   error:         string | null;
 
-  initialize:        () => Promise<void>;
-  createHabit:       (input: CreateHabitInput) => Promise<Habit>;
-  updateHabit:       (input: UpdateHabitInput) => Promise<void>;
-  archiveHabit:      (id: string) => Promise<void>;
-  unarchiveHabit:    (id: string) => Promise<void>;
-  deleteHabit:       (id: string) => Promise<void>;
-  reorderHabits:     (orderedIds: string[]) => Promise<void>;
-  toggleHabit:       (habitId: string, date?: string) => Promise<void>;
+  initialize:          () => Promise<void>;
+  createHabit:         (input: CreateHabitInput) => Promise<Habit>;
+  updateHabit:         (input: UpdateHabitInput) => Promise<void>;
+  archiveHabit:        (id: string) => Promise<void>;
+  unarchiveHabit:      (id: string) => Promise<void>;
+  deleteHabit:         (id: string) => Promise<void>;
+  reorderHabits:       (orderedIds: string[]) => Promise<void>;
+  toggleHabit:         (habitId: string, date?: string) => Promise<void>;
   loadRecordsForHabit: (habitId: string) => Promise<void>;
 }
 
-// ─── STORE ──────────────────────────────────────────────────
-
-export const useHabitStore = create<HabitState>((set, get) => ({
+const useHabitStore = create<HabitState>((set, get) => ({
   habits:        [],
   records:       {},
   isLoading:     false,
@@ -45,6 +35,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
   error:         null,
 
   initialize: async () => {
+    if (get().isInitialized) return;
     set({ isLoading: true, error: null });
     try {
       const habits    = await HabitRepository.getAll();
@@ -83,15 +74,20 @@ export const useHabitStore = create<HabitState>((set, get) => ({
 
   archiveHabit: async (id) => {
     await HabitRepository.setArchived(id, true);
+    await NotificationService.cancelHabitReminder(id);
     set(state => ({
-      habits: state.habits.map(h => h.id === id ? { ...h, isArchived: true } : h),
+      habits: state.habits.map(h =>
+        h.id === id ? { ...h, isArchived: true } : h
+      ),
     }));
   },
 
   unarchiveHabit: async (id) => {
     await HabitRepository.setArchived(id, false);
     set(state => ({
-      habits: state.habits.map(h => h.id === id ? { ...h, isArchived: false } : h),
+      habits: state.habits.map(h =>
+        h.id === id ? { ...h, isArchived: false } : h
+      ),
     }));
   },
 
@@ -100,19 +96,22 @@ export const useHabitStore = create<HabitState>((set, get) => ({
     set(state => {
       const newRecords = { ...state.records };
       delete newRecords[id];
-      return { habits: state.habits.filter(h => h.id !== id), records: newRecords };
+      return {
+        habits:  state.habits.filter(h => h.id !== id),
+        records: newRecords,
+      };
     });
   },
 
   reorderHabits: async (orderedIds) => {
     await HabitRepository.updateOrder(orderedIds);
     set(state => {
-      const habitMap  = new Map(state.habits.map(h => [h.id, h]));
-      const reordered = orderedIds
+      const habitMap     = new Map(state.habits.map(h => [h.id, h]));
+      const reordered    = orderedIds
         .map((id, index) => habitMap.has(id) ? { ...habitMap.get(id)!, order: index } : null)
         .filter(Boolean) as Habit[];
       const reorderedSet = new Set(orderedIds);
-      const rest = state.habits.filter(h => !reorderedSet.has(h.id));
+      const rest         = state.habits.filter(h => !reorderedSet.has(h.id));
       return { habits: [...reordered, ...rest] };
     });
   },
@@ -122,15 +121,18 @@ export const useHabitStore = create<HabitState>((set, get) => ({
     const record     = await HabitRecordRepository.toggle(habitId, targetDate);
 
     set(state => {
-      const habitRecords   = state.records[habitId] ?? [];
-      const existingIndex  = habitRecords.findIndex(
+      const habitRecords  = [...(state.records[habitId] ?? [])];
+      const existingIndex = habitRecords.findIndex(
         r => r.habitId === habitId && r.date === targetDate
       );
-      const newRecords = existingIndex >= 0
-        ? habitRecords.map((r, i) => i === existingIndex ? record : r)
-        : [...habitRecords, record];
 
-      return { records: { ...state.records, [habitId]: newRecords } };
+      if (existingIndex >= 0) {
+        habitRecords[existingIndex] = record;
+      } else {
+        habitRecords.push(record);
+      }
+
+      return { records: { ...state.records, [habitId]: habitRecords } };
     });
   },
 
@@ -143,3 +145,5 @@ export const useHabitStore = create<HabitState>((set, get) => ({
     set(state => ({ records: { ...state.records, [habitId]: records } }));
   },
 }));
+
+export { useHabitStore };

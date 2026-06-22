@@ -61,4 +61,15 @@ export const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+
+  {
+    version:     2,
+    description: 'Crear tabla de almacenamiento clave-valor',
+    sql: [
+      `CREATE TABLE IF NOT EXISTS app_storage (
+        key   TEXT PRIMARY KEY NOT NULL,
+        value TEXT NOT NULL
+      )`,
+    ],
+  },
 ];

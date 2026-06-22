@@ -5,11 +5,12 @@ import { useTheme } from '../../theme/theme';
 import { Habit } from '../../domain/models/Habit';
 
 interface HabitRowProps {
-  habit: Habit;
-  isCompleted: boolean;
+  habit:         Habit;
+  isCompleted:   boolean;
   currentStreak: number;
-  onToggle: () => void;
-  onPress: () => void;
+  onToggle:      () => void;
+  onPress:       () => void;
+  index?:        number;
 }
 
 export const HabitRow: React.FC<HabitRowProps> = ({
@@ -18,6 +19,7 @@ export const HabitRow: React.FC<HabitRowProps> = ({
   currentStreak,
   onToggle,
   onPress,
+  index = 0,
 }) => {
   const { colors, typography, spacing, borderRadius, borderWidth, shadows } = useTheme();
 
@@ -26,20 +28,24 @@ export const HabitRow: React.FC<HabitRowProps> = ({
   const slideAnim  = useRef(new Animated.Value(16)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        damping: 20,
-        stiffness: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+    const delay = index * 60;
+    const timer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue:         1,
+          duration:        300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue:         0,
+          damping:         20,
+          stiffness:       200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [index]);
 
   // Animación sutil cuando se completa
   const completedScale = useRef(new Animated.Value(1)).current;

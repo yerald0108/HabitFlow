@@ -10,24 +10,19 @@ interface Toast {
 }
 
 interface UIState {
-  // Toast notifications
-  toasts:       Toast[];
-  showToast:    (message: string, type?: ToastType) => void;
-  dismissToast: (id: string) => void;
-
-  // Control del tab bar
+  toasts:          Toast[];
+  showToast:       (message: string, type?: ToastType) => void;
+  dismissToast:    (id: string) => void;
   isTabBarVisible: boolean;
   hideTabBar:      () => void;
   showTabBar:      () => void;
-
-  // Modal de formulario
   isHabitFormOpen: boolean;
   editingHabitId:  string | null;
   openHabitForm:   (habitId?: string) => void;
   closeHabitForm:  () => void;
 }
 
-export const useUIStore = create<UIState>((set) => ({
+const useUIStore = create<UIState>((set) => ({
   toasts:          [],
   isTabBarVisible: true,
   isHabitFormOpen: false,
@@ -35,9 +30,7 @@ export const useUIStore = create<UIState>((set) => ({
 
   showToast: (message, type = 'success') => {
     const id = Date.now().toString();
-    set(state => ({
-      toasts: [...state.toasts, { id, message, type }],
-    }));
+    set(state => ({ toasts: [...state.toasts, { id, message, type }] }));
     setTimeout(() => {
       set(state => ({ toasts: state.toasts.filter(t => t.id !== id) }));
     }, 3000);
@@ -62,3 +55,5 @@ export const useUIStore = create<UIState>((set) => ({
     isTabBarVisible: true,
   }),
 }));
+
+export { useUIStore };

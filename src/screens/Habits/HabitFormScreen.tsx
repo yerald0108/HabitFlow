@@ -18,6 +18,9 @@ import { EmojiPicker } from '../../components/ui/EmojiPicker';
 import { ColorPicker, HABIT_COLORS } from '../../components/ui/ColorPicker';
 import { FrequencyPicker } from '../../components/ui/FrequencyPicker';
 import { HabitFrequency, WeekDay } from '../../domain/models/Habit';
+import { TimePicker } from '../../components/ui/TimePicker';
+import { NotificationService } from '../../domain/services/NotificationService';
+import { HabitRepository } from '../../data/repositories/HabitRepository';
 
 interface HabitFormScreenProps {
   habitId?: string;   // Si viene, es edición; si no, es creación
@@ -47,6 +50,9 @@ export const HabitFormScreen: React.FC<HabitFormScreenProps> = ({
   const [frequency,   setFrequency]   = useState<HabitFrequency>(existingHabit?.frequency ?? 'daily');
   const [weekDays,    setWeekDays]    = useState<WeekDay[]>(existingHabit?.weekDays ?? []);
   const [isSaving,    setIsSaving]    = useState(false);
+  const [reminderTime, setReminderTime] = useState<string | null>(
+    existingHabit?.reminderTime ?? null
+  );
   const [nameError,   setNameError]   = useState('');
 
   // ── ANIMACIÓN DE ENTRADA ─────────────────────────────────
@@ -117,7 +123,8 @@ export const HabitFormScreen: React.FC<HabitFormScreenProps> = ({
           emoji,
           color,
           frequency,
-          weekDays: frequency === 'daily' ? [] : weekDays,
+          weekDays:     frequency === 'daily' ? [] : weekDays,
+          reminderTime: reminderTime,
         });
       } else {
         await createHabit({
@@ -130,6 +137,28 @@ export const HabitFormScreen: React.FC<HabitFormScreenProps> = ({
           reminderTime: null,
         });
       }
+      // Programar notificación si tiene recordatorio
+      const savedHabit = isEditing && habitId
+        ? await HabitRepository.getById(habitId)
+        : null;
+
+      if (reminderTime) {
+        await NotificationService.scheduleHabitReminder({
+          id:          isEditing && habitId ? habitId : 'temp',
+          name,
+          emoji,
+          reminderTime,
+          frequency,
+          weekDays:    frequency === 'daily' ? [] : weekDays,
+          color,
+          description,
+          isArchived:  false,
+          order:       0,
+          createdAt:   new Date().toISOString(),
+          updatedAt:   new Date().toISOString(),
+        });
+      }
+
       handleClose();
     } catch (error) {
       console.error('[HabitForm] Error al guardar:', error);
@@ -321,6 +350,10 @@ export const HabitFormScreen: React.FC<HabitFormScreenProps> = ({
                 setWeekDays([]);
               }}
               onWeekDaysChange={setWeekDays}
+            />
+            <TimePicker
+              value={reminderTime}
+              onChange={setReminderTime}
             />
           </ScrollView>
         </KeyboardAvoidingView>

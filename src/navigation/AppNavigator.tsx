@@ -15,6 +15,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/theme';
 import { useUIStore } from '../store/uiStore';
 import { TodayScreen } from '../screens/Today/TodayScreen';
+import { StatsScreen } from '../screens/Stats/StatsScreen';
+import { HabitsScreen } from '../screens/Habits/HabitsScreen';
+import { SettingsScreen } from '../screens/Settings/SettingsScreen';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -48,9 +51,9 @@ type TabKey = typeof TABS[number]['key'];
 
 const SCREENS: Record<TabKey, React.FC> = {
   Today:    () => <TodayScreen />,
-  Stats:    () => <PlaceholderScreen title="Estadísticas" icon="bar-chart-2" />,
-  Habits:   () => <PlaceholderScreen title="Hábitos"      icon="list" />,
-  Settings: () => <PlaceholderScreen title="Ajustes"      icon="settings" />,
+  Stats:    () => <StatsScreen />,
+  Habits:   () => <HabitsScreen />,
+  Settings: () => <SettingsScreen />,
 };
 
 // ─── TAB BAR FLOTANTE CON ANIMACIÓN DE VISIBILIDAD ──────────

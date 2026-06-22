@@ -248,39 +248,39 @@ export const borderWidth = {
 // Sombras sutiles que aportan profundidad sin recargar.
 // El parámetro `color` se inyecta dinámicamente según el tema.
 
-export const getShadow = (color: string) => ({
+export const getShadow = (color: string, isDark: boolean = false) => ({
   none: {},
 
   xs: {
-    shadowColor: color,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowColor:   color,
+    shadowOffset:  { width: 0, height: 1 },
+    shadowOpacity: isDark ? 0.3 : 0.04,
+    shadowRadius:  2,
+    elevation:     1,
   },
 
   sm: {
-    shadowColor: color,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowColor:   color,
+    shadowOffset:  { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.4 : 0.06,
+    shadowRadius:  6,
+    elevation:     2,
   },
 
   md: {
-    shadowColor: color,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowColor:   color,
+    shadowOffset:  { width: 0, height: 4 },
+    shadowOpacity: isDark ? 0.5 : 0.08,
+    shadowRadius:  12,
+    elevation:     4,
   },
 
   lg: {
-    shadowColor: color,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.10,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowColor:   color,
+    shadowOffset:  { width: 0, height: 8 },
+    shadowOpacity: isDark ? 0.6 : 0.10,
+    shadowRadius:  20,
+    elevation:     8,
   },
 });
 
@@ -349,9 +349,9 @@ import { useColorScheme } from 'react-native';
 
 export function useTheme() {
   const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-  const colors = isDark ? darkColors : lightColors;
-  const shadows = getShadow(colors.shadowColor);
+  const isDark  = scheme === 'dark';
+  const colors  = isDark ? darkColors : lightColors;
+  const shadows = getShadow(colors.shadowColor, isDark);
 
   return {
     colors,
@@ -363,7 +363,7 @@ export function useTheme() {
     animation,
     layout,
     isDark,
-    palette, // acceso a colores crudos si fuera necesario
+    palette,
   };
 }
 
