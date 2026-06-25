@@ -100,6 +100,12 @@ export const HabitRepository = {
     );
   },
 
+  async deleteAll(): Promise<void> {
+    await db.getConnection().runAsync(`DELETE FROM habit_records`);
+    await db.getConnection().runAsync(`DELETE FROM habits`);
+    await db.getConnection().runAsync(`DELETE FROM app_storage`);
+  },
+
   async updateOrder(orderedIds: string[]): Promise<void> {
     const now = new Date().toISOString();
     for (let i = 0; i < orderedIds.length; i++) {

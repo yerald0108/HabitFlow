@@ -22,6 +22,8 @@ import { HabitRow } from '../../components/habits/HabitRow';
 import { CircularProgress } from '../../components/ui/CircularProgress';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { getTodayString, formatDisplayDate } from '../../domain/utils/dateUtils';
+import { calculateCurrentStreak } from '../../domain/utils/streakUtils';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 import { HabitFormScreen } from '../Habits/HabitFormScreen';
 import { useUIStore } from '../../store/uiStore';
 import { Confetti } from '../../components/ui/Confetti';
@@ -40,22 +42,7 @@ const ConnectedHabitRow: React.FC<{
   const records     = useHabitStore(s => s.records[habit.id] ?? []);
   const toggleHabit = useHabitStore(s => s.toggleHabit);
 
-  // Calcular racha actual de forma simple
-  const completedDates = new Set(records.filter(r => r.completed).map(r => r.date));
-  let streak = 0;
-  const checkDate = new Date();
-  for (let i = 0; i < 365; i++) {
-    const d = checkDate.toISOString().split('T')[0];
-    if (completedDates.has(d)) {
-      streak++;
-      checkDate.setDate(checkDate.getDate() - 1);
-    } else if (i === 0) {
-      // Hoy no completado aún — empezar desde ayer
-      checkDate.setDate(checkDate.getDate() - 1);
-    } else {
-      break;
-    }
-  }
+  const streak = calculateCurrentStreak(habit, records);
 
   return (
     <HabitRow
@@ -243,7 +230,7 @@ export const TodayScreen: React.FC = () => {
   const isFormVisible  = useUIStore(s => s.isHabitFormOpen);
   const editingHabitId = useUIStore(s => s.editingHabitId);
 
-  const TAB_BAR_TOTAL = 64 + (insets.bottom > 0 ? insets.bottom : 16) + 16;
+  const TAB_BAR_TOTAL = useTabBarHeight();
 
   const { percentage } = useDailyProgress();
 

@@ -13,8 +13,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../theme/theme';
 import { useHabitStore } from '../../store/habitStore';
+import { HabitRepository } from '../../data/repositories/HabitRepository';
 import { NotificationService } from '../../domain/services/NotificationService';
 import { ExportService } from '../../domain/services/ExportService';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 
 const SettingsRow: React.FC<{
   icon:        string;
@@ -114,12 +116,13 @@ const SettingsSection: React.FC<{
 export const SettingsScreen: React.FC = () => {
   const { colors, typography, spacing, isDark } = useTheme();
   const insets  = useSafeAreaInsets();
-  const habits  = useHabitStore(s => s.habits);
+  const habits       = useHabitStore(s => s.habits);
+  const resetAllData = useHabitStore(s => s.resetAllData);
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const records = useHabitStore(s => s.records);
-  const TAB_BAR_TOTAL = 64 + (insets.bottom > 0 ? insets.bottom : 16) + 16;
+  const TAB_BAR_TOTAL = useTabBarHeight();
 
   useEffect(() => {
     NotificationService.hasPermissions().then(setNotificationsEnabled);
@@ -180,13 +183,13 @@ export const SettingsScreen: React.FC = () => {
           style:   'destructive',
           onPress: async () => {
             await NotificationService.cancelAll();
-            Alert.alert('Datos eliminados', 'Reinicia la app para completar el proceso.');
+            await resetAllData();
+            Alert.alert('Datos eliminados', 'Todos tus datos han sido eliminados.');
           },
         },
       ]
     );
   };
-
   const activeCount   = habits.filter(h => !h.isArchived).length;
   const archivedCount = habits.filter(h => h.isArchived).length;
   const totalRecords  = 0;

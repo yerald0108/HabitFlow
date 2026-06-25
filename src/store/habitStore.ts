@@ -25,6 +25,7 @@ interface HabitState {
   reorderHabits:       (orderedIds: string[]) => Promise<void>;
   toggleHabit:         (habitId: string, date?: string) => Promise<void>;
   loadRecordsForHabit: (habitId: string) => Promise<void>;
+  resetAllData:        () => Promise<void>;
 }
 
 const useHabitStore = create<HabitState>((set, get) => ({
@@ -143,6 +144,17 @@ const useHabitStore = create<HabitState>((set, get) => ({
       habitId, startDate, today
     );
     set(state => ({ records: { ...state.records, [habitId]: records } }));
+  },
+
+  resetAllData: async () => {
+    await HabitRepository.deleteAll();
+    set({
+      habits:        [],
+      records:       {},
+      isLoading:     false,
+      isInitialized: false,
+      error:         null,
+    });
   },
 }));
 

@@ -14,6 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/theme';
 import { useUIStore } from '../store/uiStore';
+import { useTabBarHeight } from '../hooks/useTabBarHeight';
 import { TodayScreen } from '../screens/Today/TodayScreen';
 import { StatsScreen } from '../screens/Stats/StatsScreen';
 import { HabitsScreen } from '../screens/Habits/HabitsScreen';
@@ -166,7 +167,7 @@ function AnimatedTabNavigator() {
   const translateX = useRef(new Animated.Value(0)).current;
   const opacity    = useRef(new Animated.Value(1)).current;
 
-  const TAB_BAR_TOTAL = 64 + (insets.bottom > 0 ? insets.bottom : 16) + 16;
+  const TAB_BAR_TOTAL = useTabBarHeight();
 
   const navigateTo = (newIndex: number) => {
     if (newIndex === activeIndex) return;

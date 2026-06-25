@@ -13,6 +13,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../theme/theme';
 import { useHabitStore } from '../../store/habitStore';
 import { getLastNDays, toDateString } from '../../domain/utils/dateUtils';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 import {
   shouldHabitBeCompletedOn,
   calculateCurrentStreak,
@@ -288,7 +289,7 @@ export const StatsScreen: React.FC = () => {
     }
   }, [habits.length]);
 
-  const TAB_BAR_TOTAL = 64 + (insets.bottom > 0 ? insets.bottom : 16) + 16;
+  const TAB_BAR_TOTAL = useTabBarHeight();
 
   // Calcular stats del hábito seleccionado con useMemo
   const selectedHabit = useMemo(

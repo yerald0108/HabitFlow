@@ -16,6 +16,7 @@ import { useHabitStore } from '../../store/habitStore';
 import { useUIStore } from '../../store/uiStore';
 import { HabitFormScreen } from './HabitFormScreen';
 import { Habit } from '../../domain/models/Habit';
+import { useTabBarHeight } from '../../hooks/useTabBarHeight';
 
 // ─── CONSTANTES ──────────────────────────────────────────────
 
@@ -381,7 +382,7 @@ export const HabitsScreen: React.FC = () => {
   const activeHabits   = habits.filter(h => !h.isArchived);
   const archivedHabits = habits.filter(h => h.isArchived);
 
-  const TAB_BAR_TOTAL = 64 + (insets.bottom > 0 ? insets.bottom : 16) + 16;
+  const TAB_BAR_TOTAL = useTabBarHeight();
 
   const fabScale = useRef(new Animated.Value(1)).current;
 
